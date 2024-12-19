@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>자바스크립트 기말 과제</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f1f1f1;
+            flex-direction: column;
+        }
+
+        #background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            transition: background-color 0.5s ease;
+            z-index: -1;
+        }
+
+        #title-section {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 20px;
+            text-align: center;
+            z-index: 1;
+            font-size: 24px;
+            font-weight: bold;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        #content {
+            z-index: 10;
+            text-align: center;
+            color: #333;
+            max-width: 600px;
+            width: 90%;
+            padding: 20px;
+            background-color: rgba(255, 255, 255, 0.8);
+            border-radius: 15px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            position: relative;
+            margin-top: 100px;
+            overflow: auto;
+            max-height: 70vh;
+        }
+
+        input[type="file"] {
+            font-size: 14px;
+            padding: 8px;
+            color: black;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            cursor: pointer;
+            display: inline-block;
+            margin-top: 20px;
+        }
+
+        #label-container {
+            font-size: 16px;
+            margin-top: 20px;
+            font-weight: 600;
+        }
+
+        #uploadedImage {
+            max-width: 80%;
+            height: auto;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="background"></div>
+    <div id="title-section">
+        <div id="title">당신은 오늘 무슨 옷을 입었을까요?</div>
+    </div>
+    <div id="content">
+        <input type="file" id="imageInput" accept="image/*">
+        <div id="preview">
+            <img src="intro.png" id="uploadedImage" alt="Uploaded Image">
+        </div>
+        <div id="label-container"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+    <script type="text/javascript">
+        const URL = "my_model/";
+
+        let model, labelContainer, maxPredictions;
+
+        const colorMap = {
+            "빨간색": "#ff6b6b",
+            "파란색": "#4f83cc",
+            "노란색": "#f4d03f",
+            "초록색": "#6bcf57",
+            "검은색": "#2c2c2c",
+            "흰색": "#ffffff",
+            "회색": "#b0bec5",
+            "갈색": "#8d6e63",
+            "주황색": "#f39c12",
+            "분홍색": "#e91e63",
+            "보라색": "#9b59b6"
+        };
+
+        async function init() {
+            const modelURL = URL + "model.json";
+            const metadataURL = URL + "metadata.json";
+            
+            try {
+                model = await tmImage.load(modelURL, metadataURL);
+                maxPredictions = model.getTotalClasses();
+                labelContainer = document.getElementById("label-container");
+                for (let i = 0; i < maxPredictions; i++) {
+                    labelContainer.appendChild(document.createElement("div"));
+                }
+            } catch (error) {
+                console.error("Model loading failed:", error);
+            }
+        }
+
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const imgElement = document.getElementById("uploadedImage");
+            const reader = new FileReader();
+
+            reader.onload = function (e) {
+                imgElement.src = e.target.result;
+                imgElement.onload = function () {
+                    predict(imgElement);
+                };
+            };
+
+            reader.readAsDataURL(file);
+        }
+
+        async function predict(imageElement) {
+            const prediction = await model.predict(imageElement);
+            let highestPrediction = { className: "", probability: 0 };
+
+            for (let i = 0; i < maxPredictions; i++) {
+                const classPrediction = prediction[i].className + ": " + prediction[i].probability.toFixed(2);
+                labelContainer.childNodes[i].innerHTML = classPrediction;
+
+                if (prediction[i].probability > highestPrediction.probability) {
+                    highestPrediction = prediction[i];
+                }
+            }
+
+            const color = highestPrediction.className;
+            const colorCode = colorMap[color] || "#ffffff";
+
+            document.getElementById("background").style.backgroundColor = colorCode;
+
+            const titleElement = document.getElementById("title");
+            titleElement.textContent = `당신은 오늘 ${color} 옷을 입으셨군요!`;
+            titleElement.style.color = colorCode;
+
+            const titleSection = document.getElementById("title-section");
+
+            if (color === "흰색") {
+                titleSection.style.backgroundColor = "#000000";
+                titleElement.style.color = "#ffffff";
+            } else {
+                titleSection.style.backgroundColor = "rgba(255, 255, 255, 0.8)";
+                titleElement.style.color = colorCode;
+            }
+        }
+
+        init();
+
+        document.getElementById("imageInput").addEventListener("change", handleImageUpload);
+    </script>
+</body>
+</html>
